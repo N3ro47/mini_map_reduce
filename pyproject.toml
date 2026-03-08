@@ -1,0 +1,21 @@
+[project]
+name = "mini-map-reduce"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+  "pyspark",
+]
+
+[dependency-groups]
+dev = [
+  "ruff",
+  "ty",
+]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
