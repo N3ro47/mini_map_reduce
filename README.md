@@ -19,10 +19,9 @@ To test the engine under different conditions, three different loads were define
 * **Focus:** Measuring the impact of workload imbalance on total execution time.
 
 ### 3: Event Aggregation 
-* **Task:** Parsing structured logs.
-
-* **Focus:** Assessing Mapper throughput during string parsing and the effectiveness of data reduction before the Shuffle phase.
-
+* **Task:** Extracting events from within log files.
+* **Focus:** Measuring how quickly Workers can parse timestamps and discard data that falls outside the selected range.
+* 
 ## 4. Benchmarking 
 Performance is evaluated based on:
 
