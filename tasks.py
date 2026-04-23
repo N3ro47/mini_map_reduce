@@ -12,7 +12,7 @@ def inverted_index_mapper(data: tuple[int, str]) -> Iterable[tuple[str, int]]:
 
 def inverted_index_reducer(word: str, doc_ids: Iterable[int]) -> tuple[str, list[int]]:
     # Reducer collects all doc_ids for a given word and returns a sorted list of unique doc_ids
-    return (word, sorted(list(set(doc_ids))))
+    return (word, sorted(set(doc_ids)))
 
 
 # --- 2. WORD COUNT
@@ -30,7 +30,6 @@ def wordcount_reducer(word: str, counts: Iterable[int]) -> tuple[str, int]:
 def log_event_mapper(line: str) -> Iterable[tuple[str, int]]:
     parts = line.strip().split()
     if len(parts) >= 5:
-        # Agregujemy po URL (część 4) i Statusie (część 5)
         path = parts[3]
         status = parts[4]
         key = f"{path} [{status}]"
