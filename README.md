@@ -30,3 +30,24 @@ Performance is evaluated based on:
 * **Combiner Impact:** Performance gain from local pre-aggregation and raw data transmission (IPC).
 * **Data Distribution:** Comparing system stability on uniform data and imbalanced datasets.
 * **Spark Baseline:** Benchmarking our optimal setup against a Apache Spark implementation.
+
+
+## 5. Execution & CLI Usage
+
+The project features a unified Master CLI script (`benchmark.py`) that orchestrates deterministic data generation, test execution, and CSV result aggregation for both the Python MapReduce engine and Apache Spark.
+
+### Generating Data and Running Tests
+You can run all research scenarios using a single terminal command. The script will automatically pre-generate the necessary datasets (if they don't already exist) using a fixed seed to ensure fully deterministic and reproducible results.
+
+**Quick Validation Run** (Small dataset, limited workers):
+```bash
+python benchmark.py \
+  --tests all \
+  --sizes 50 200 500 \
+  --imbalance 0 50 90 \
+  --workers 1 2 4 8 \
+  --chunks 5000 50000 \
+  --repeats 6 \
+  --run-spark \
+  --output results_final.csv
+```

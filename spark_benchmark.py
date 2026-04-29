@@ -1,18 +1,9 @@
 import argparse
+import json
 import time
-from pathlib import Path
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, explode, lower, split
-
-from benchmark import (
-    BIG_FILE_SIZE_MB,
-    DATA_DIR,
-    FILE_SIZES_MB,
-    VOCAB_SIZE,
-    WORDS_PER_LINE,
-    generate_data,
-)
+from pyspark.sql.functions import col, collect_set, explode, lower, split
 
 
 def build_spark_session() -> SparkSession:
@@ -25,60 +16,81 @@ def build_spark_session() -> SparkSession:
     )
 
 
-def spark_wordcount_file(spark: SparkSession, path: Path) -> tuple[float, int]:
+def spark_word_count(spark: SparkSession, file_path: str):
     start = time.perf_counter()
-
-    df = spark.read.text(str(path))
-
-    # Extract tokens with approximately the same logic as the Python baseline
-    # (using non-word characters as delimiters, then filtering empty tokens).
+    df = spark.read.text(file_path)
     words_df = df.select(explode(split(lower(col("value")), r"\W+")).alias("word")).where(
         col("word") != ""
     )
-
-    counts_df = words_df.groupBy("word").count()
-    result = counts_df.count()
-
+    result = words_df.groupBy("word").count().count()
     end = time.perf_counter()
     return end - start, result
 
 
-def benchmark_one_size(spark: SparkSession, size_mb: int) -> None:
-    print("=" * 80)
-    print(f"[SPARK SIZE] {size_mb}MB")
+def spark_inverted_index(spark: SparkSession, file_path: str):
+    from pyspark.sql.functions import monotonically_increasing_id
 
-    data_path = generate_data(size_mb)
-    print(f"[*] Using data file: {data_path}")
-
-    t_spark, n_keys = spark_wordcount_file(spark, data_path)
-    print(f"[SPARK] Time: {t_spark:.4f}s | Keys: {n_keys}")
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Spark benchmark for mini_map_reduce.")
-    parser.add_argument(
-        "--big_file",
-        action="store_true",
-        help="Run only a large 5GB file benchmark instead of the standard sizes.",
+    start = time.perf_counter()
+    # Read text, attach monotonically increasing id as proxy for line number
+    df = spark.read.text(file_path).withColumn("doc_id", monotonically_increasing_id())
+    words_df = df.select(explode(split(lower(col("value")), r"\W+")).alias("word"), "doc_id").where(
+        col("word") != ""
     )
+    # grouping by word and collecting a set of doc_ids
+    result = words_df.groupBy("word").agg(collect_set("doc_id")).count()
+    end = time.perf_counter()
+    return end - start, result
+
+
+def spark_logs(spark: SparkSession, file_path: str):
+    from pyspark.sql.functions import concat_ws
+
+    # using built-in spark split instead of split_str to be safe, split is imported
+    start = time.perf_counter()
+    df = spark.read.text(file_path)
+    # Filter and group
+    # format: date_str user action path status
+    parsed_df = (
+        df.select(split(col("value"), " ").alias("parts"))
+        .select(
+            col("parts").getItem(0).alias("date"),
+            col("parts").getItem(3).alias("path"),
+            col("parts").getItem(4).alias("status"),
+        )
+        .where(col("date") >= "2026-04-15")
+        .select(concat_ws("_", col("path"), col("status")).alias("key"))
+    )
+
+    result = parsed_df.groupBy("key").count().count()
+    end = time.perf_counter()
+    return end - start, result
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Spark subprocess runner")
+    parser.add_argument("--task", required=True)
+    parser.add_argument("--file", required=True)
     args = parser.parse_args()
 
-    if args.big_file:
-        sizes: list[int] = [BIG_FILE_SIZE_MB]
-    else:
-        sizes = list(FILE_SIZES_MB)
-
-    print("[*] Starting Spark benchmark across sizes...")
-    print(f"    Sizes (MB): {sizes}")
-
+    # Build session (not timed)
     spark = build_spark_session()
+    # Suppress spark logging for cleaner subprocess output
+    spark.sparkContext.setLogLevel("ERROR")
+
     try:
-        for size_mb in sizes:
-            benchmark_one_size(spark, size_mb)
+        if args.task == "word_count":
+            t_diff, n_keys = spark_word_count(spark, args.file)
+        elif args.task == "inverted_index":
+            t_diff, n_keys = spark_inverted_index(spark, args.file)
+        elif args.task == "logs":
+            t_diff, n_keys = spark_logs(spark, args.file)
+        else:
+            raise ValueError(f"Unknown task: {args.task}")
+
+        # Write output as JSON
+        print(json.dumps({"time_seconds": t_diff, "keys_found": n_keys}))
     finally:
         spark.stop()
-
-    print("[+] Spark benchmark complete.")
 
 
 if __name__ == "__main__":

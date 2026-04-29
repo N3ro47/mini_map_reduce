@@ -1,10 +1,9 @@
 import argparse
-import random
 import pathlib
-from enum import StrEnum
+import random
 from datetime import datetime, timedelta
+from enum import StrEnum
 from typing import Any
-
 
 """
 Deterministic Data Generator for MapReduce Benchmarks
