@@ -11,14 +11,14 @@ This project investigates the efficiency of the **MapReduce** paradigm within a 
 ## 3. Research Scenarios 
 To test the engine under different conditions, three different loads were defined:
 ### 1: Inverted Index (Data Complexity)
-* **Task:** Mapping repeated terms to a list of document IDs (`word -> [doc_ids]`).
+* **Task:** Mapping unique words to a set of line numbers (`word -> [line_ids]`).
 * **Focus:** Evaluating memory management and shuffle efficiency.
 
-### 2: Key-Skew Benchmark (Load Imbalance)
-* **Task:** Processing data where one key (word) accounts for 80–95% of all records.
-* **Focus:** Measuring the impact of workload imbalance on total execution time.
+### 2: Word count (Data Aggregation)
+* **Task:** Splitting text into tokens and counting total occurrences (`word -> count`).
+* **Focus:** Measuring mathematical aggregation performance and engine resilience to load imbalance.
 
-### 3: Event Aggregation 
+### 3: Event Aggregation (Parsing & Filtering)
 * **Task:** Extracting events from within log files.
 * **Focus:** Measuring how quickly Workers can parse timestamps and discard data that falls outside the selected range.
 * 
