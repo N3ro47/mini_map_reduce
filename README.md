@@ -11,14 +11,14 @@ This project investigates the efficiency of the **MapReduce** paradigm within a 
 ## 3. Research Scenarios 
 To test the engine under different conditions, three different loads were defined:
 ### 1: Inverted Index (Data Complexity)
-* **Task:** Mapping repeated terms to a list of document IDs (`word -> [doc_ids]`).
+* **Task:** Mapping unique words to a set of line numbers (`word -> [line_ids]`).
 * **Focus:** Evaluating memory management and shuffle efficiency.
 
-### 2: Key-Skew Benchmark (Load Imbalance)
-* **Task:** Processing data where one key (word) accounts for 80–95% of all records.
-* **Focus:** Measuring the impact of workload imbalance on total execution time.
+### 2: Word count (Data Aggregation)
+* **Task:** Splitting text into tokens and counting total occurrences (`word -> count`).
+* **Focus:** Measuring mathematical aggregation performance and engine resilience to load imbalance.
 
-### 3: Event Aggregation 
+### 3: Event Aggregation (Parsing & Filtering)
 * **Task:** Extracting events from within log files.
 * **Focus:** Measuring how quickly Workers can parse timestamps and discard data that falls outside the selected range.
 * 
@@ -30,3 +30,24 @@ Performance is evaluated based on:
 * **Combiner Impact:** Performance gain from local pre-aggregation and raw data transmission (IPC).
 * **Data Distribution:** Comparing system stability on uniform data and imbalanced datasets.
 * **Spark Baseline:** Benchmarking our optimal setup against a Apache Spark implementation.
+
+
+## 5. Execution & CLI Usage
+
+The project features a unified Master CLI script (`benchmark.py`) that orchestrates deterministic data generation, test execution, and CSV result aggregation for both the Python MapReduce engine and Apache Spark.
+
+### Generating Data and Running Tests
+You can run all research scenarios using a single terminal command. The script will automatically pre-generate the necessary datasets (if they don't already exist) using a fixed seed to ensure fully deterministic and reproducible results.
+
+**Quick Validation Run** (Small dataset, limited workers):
+```bash
+python benchmark.py \
+  --tests all \
+  --sizes 50 200 500 \
+  --imbalance 0 50 90 \
+  --workers 1 2 4 8 \
+  --chunks 5000 50000 \
+  --repeats 6 \
+  --run-spark \
+  --output results_final.csv
+```
