@@ -1,59 +1,97 @@
 import re
 from collections.abc import Iterable
-from typing import Any
+from collections import defaultdict
 
 
-# --- WORD COUNT ---
-def word_count_mapper(text: str) -> Iterable[tuple[str, int]]:
-    for word in re.findall(r"\w+", text.lower()):
-        yield word, 1
+# --- 1. INVERTED INDEX ---
+# Input: (doc_id, text_line)
+def inverted_index_mapper(data: tuple[int, str]) -> Iterable[tuple[str, int]]:
+    doc_id, text = data
+    # We find words and make a set so as not to emit the same word 100 times from one line
+    words = set(re.findall(r"\w+", text.lower()))
+    for word in words:
+        yield (word, doc_id)
 
 
-def word_count_reducer(word: str, counts: Iterable[int]) -> tuple[str, int]:
-    return word, sum(counts)
+def inverted_index_reducer(word: str, doc_ids: Iterable[int]) -> tuple[str, list[int]]:
+    # Reducer collects all doc_ids for a given word and returns a sorted list of unique doc_ids
+    return (word, sorted(set(doc_ids)))
 
 
-# --- INVERTED INDEX ---
-def inverted_index_mapper(item: tuple[int, str]) -> Iterable[tuple[str, set[int]]]:
-    line_number, text = item
-    for word in re.findall(r"\w+", text.lower()):
-        yield word, {line_number}
+def inverted_index_iterative(indexed_lines: list[tuple[int, str]]) -> dict[str, list[int]]:
+    result = defaultdict(set)
+
+    for doc_id, text in indexed_lines:
+        words = set(re.findall(r"\w+", text.lower()))
+        for word in words:
+            result[word].add(doc_id)
+
+    return {word: sorted(doc_ids) for word, doc_ids in result.items()}
 
 
-def inverted_index_reducer(word: str, sets: Iterable[set[int]]) -> tuple[str, set[int]]:
-    result = set()
-    for s in sets:
-        result.update(s)
-    return word, result
+# --- 2. WORD COUNT
+# Input: text_line
+def wordcount_mapper(line: str) -> Iterable[tuple[str, int]]:
+    words = re.findall(r"\w+", line.lower())
+    for word in words:
+        yield (word, 1)
 
 
-# --- LOG EVENTS ---
-def log_events_mapper(line: str) -> Iterable[tuple[str, int]]:
-    line = line.strip()
-    if not line:
-        return []
-    parts = line.split(" ")
+def wordcount_reducer(word: str, counts: Iterable[int]) -> tuple[str, int]:
+    return (word, sum(counts))
+
+
+def wordcount_iterative(lines: list[str]) -> dict[str, int]:
+    result = defaultdict(int)
+
+    for line in lines:
+        words = re.findall(r"\w+", line.lower())
+        for word in words:
+            result[word] += 1
+
+    return dict(result)
+
+
+# --- 3. EVENT AGGREGATION (Logs) ---
+def log_event_mapper(line: str) -> Iterable[tuple[str, int]]:
+    parts = line.strip().split()
     if len(parts) >= 5:
-        date_str, user, action, path, status = parts[:5]
-        if date_str >= "2026-04-15":
-            yield f"{path}_{status}", 1
+        path = parts[3]
+        status = parts[4]
+        key = f"{path} [{status}]"
+        yield (key, 1)
 
 
-def log_events_reducer(key: str, counts: Iterable[int]) -> tuple[str, int]:
-    return key, sum(counts)
+def log_event_reducer(key: str, counts: Iterable[int]) -> tuple[str, int]:
+    return (key, sum(counts))
 
 
+def log_event_iterative(lines: list[str]) -> dict[str, int]:
+    result = defaultdict(int)
+
+    for line in lines:
+        parts = line.strip().split()
+        if len(parts) >= 5:
+            path = parts[3]
+            status = parts[4]
+            key = f"{path} [{status}]"
+            result[key] += 1
+
+
+# --- COMPATIBILITY FUNCTIONS (for benchmark.py) ---
 def get_mappers_reducers(task_name: str):
     if task_name == "word_count":
-        return word_count_mapper, word_count_reducer
+        return wordcount_mapper, wordcount_reducer
     elif task_name == "inverted_index":
         return inverted_index_mapper, inverted_index_reducer
     elif task_name == "logs":
-        return log_events_mapper, log_events_reducer
+        return log_event_mapper, log_event_reducer
     raise ValueError(f"Unknown task: {task_name}")
 
 
-def prepare_input(task_name: str, lines: list[str]) -> list[Any]:
+def prepare_input(task_name: str, lines: list[str]):
     if task_name == "inverted_index":
         return list(enumerate(lines))
     return lines
+
+    return dict(result)
