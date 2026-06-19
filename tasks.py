@@ -4,7 +4,6 @@ from collections import defaultdict
 from typing import Any
 
 # --- 1. WORD COUNT ---
-# Logic from Master, Naming from Current (to keep benchmark working)
 def wordcount_mapper(text: str) -> Iterable[tuple[str, int]]:
     for word in re.findall(r"\w+", text.lower()):
         yield word, 1
@@ -21,8 +20,6 @@ def wordcount_iterative(lines: list[str]) -> dict[str, int]:
 
 
 # --- 2. INVERTED INDEX ---
-# Current branch logic (yielding int doc_ids) is usually better for MapReduce engines 
-# than yielding sets immediately, so we keep Current logic + Iterative.
 def inverted_index_mapper(data: tuple[int, str]) -> Iterable[tuple[str, int]]:
     doc_id, text = data
     words = set(re.findall(r"\w+", text.lower()))
@@ -42,17 +39,10 @@ def inverted_index_iterative(indexed_lines: list[tuple[int, str]]) -> dict[str, 
 
 
 # --- 3. EVENT AGGREGATION (Logs) ---
-# Merged: Keeps your Key Format and Iterative logic, but adds the Date Filter from Master.
 def log_event_mapper(line: str) -> Iterable[tuple[str, int]]:
     parts = line.strip().split()
     if len(parts) >= 5:
-        # master branch logic: date filtering
-        date_str = parts[0]
-        path = parts[3]
-        status = parts[4]
-        
-        # If master had a specific date requirement, we keep it:
-        # (Remove this if-check if you want to process ALL logs)
+        date_str, _, _, path, status = parts[:5]
         if date_str >= "2026-04-15": 
             key = f"{path} [{status}]"
             yield (key, 1)
@@ -72,14 +62,12 @@ def log_event_iterative(lines: list[str]) -> dict[str, int]:
     return dict(result)
 
 
-# --- UTILITIES FROM MASTER ---
-# Updated to point to the function names used in your benchmarks
 def get_mappers_reducers(task_name: str):
-    if task_name == "word_count":
+    if task_name in ["word_count", "wordcount"]:
         return wordcount_mapper, wordcount_reducer
     elif task_name == "inverted_index":
         return inverted_index_mapper, inverted_index_reducer
-    elif task_name == "logs":
+    elif task_name in ["logs", "log_events"]:
         return log_event_mapper, log_event_reducer
     raise ValueError(f"Unknown task: {task_name}")
 
